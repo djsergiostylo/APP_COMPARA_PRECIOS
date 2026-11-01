@@ -15,7 +15,10 @@ export const num = v => {
 
 export async function getJson(url) {
   const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(20000) });
-  if (!res.ok) throw new Error(`${res.status} en ${new URL(url).host}`);
+  if (!res.ok) {
+    const blocked = res.status === 403 && /cloudflare|just a moment/i.test((await res.text().catch(() => '')) + (res.headers.get('server') || ''));
+    throw new Error(blocked ? `${new URL(url).host} bloquea scrapers (desafío anti-bot de Cloudflare)` : `${res.status} en ${new URL(url).host}`);
+  }
   return res.json();
 }
 
@@ -26,14 +29,14 @@ export function makeOffer(store, { id, name, unit, category, price, was, image, 
 
 // Recorre TERMS (con límite de concurrencia), dedup por id y devuelve { offers, errors }.
 export async function scrapeByTerms({ store, fetchTerm, concurrency = 3 }) {
-  const byId = new Map(); let errors = 0, ok = 0, i = 0;
+  const byId = new Map(); let errors = 0, ok = 0, i = 0, lastError = '';
   await Promise.all(Array.from({ length: concurrency }, async () => {
     while (i < TERMS.length) {
       const term = TERMS[i++];
-      try { (await fetchTerm(term)).forEach(o => o && byId.set(o.id, o)); ok++; } catch { errors++; }
+      try { (await fetchTerm(term)).forEach(o => o && byId.set(o.id, o)); ok++; } catch (e) { errors++; lastError = e.message; }
       await new Promise(r => setTimeout(r, 250));
     }
   }));
-  if (!ok) throw new Error(`${store}: ninguna búsqueda respondió (¿bloqueado o API cambiada?)`);
+  if (!ok) throw new Error(`${store}: ${lastError || 'ninguna búsqueda respondió'}`);
   return { offers: [...byId.values()], errors };
 }

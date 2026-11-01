@@ -10,8 +10,8 @@ export function parseDia(json) {
     return makeOffer('Dia', {
       id: p.object_id || p.sku_id || p.id,
       name: p.display_name || p.name,
-      unit: p.unit || p.size || '',
-      category: (p.categories && p.categories[0] && (p.categories[0].name || p.categories[0])) || undefined,
+      unit: pr.price_per_unit != null && pr.measure_unit ? `${String(pr.price_per_unit).replace('.', ',')} €/${String(pr.measure_unit).toLowerCase()}` : '',
+      category: p.l1_category_description || undefined,
       price: num(pr.price ?? p.price),
       was: num(pr.strikethrough_price ?? pr.previous_price ?? p.strikethrough_price),
       image: p.image && (p.image.startsWith('http') ? p.image : `${BASE}${p.image}`),
