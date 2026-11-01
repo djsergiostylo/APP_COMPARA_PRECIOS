@@ -6,7 +6,8 @@ const initial = {
   alerts: {},
   targets: {},
   basket: { leche: 2, aove: 1, huevos: 1, pasta: 2, cafe: 1, platano: 1 },
-  copied: []
+  copied: [],
+  selected: {}
 };
 
 function load() {
@@ -27,5 +28,7 @@ export function useAppState() {
     return { ...s, basket };
   });
   const toggleCoupon = id => setState(s => ({ ...s, copied: s.copied.includes(id) ? s.copied.filter(x => x !== id) : [...s.copied, id] }));
-  return { ...state, toggleFav, setTarget, toggleAlert, changeQty, toggleCoupon };
+  const toggleSelect = o => setState(s => { const sel = { ...s.selected }; if (sel[o.id]) delete sel[o.id]; else sel[o.id] = o; return { ...s, selected: sel }; });
+  const clearSelected = () => setState(s => ({ ...s, selected: {} }));
+  return { ...state, toggleSelect, clearSelected, toggleFav, setTarget, toggleAlert, changeQty, toggleCoupon };
 }

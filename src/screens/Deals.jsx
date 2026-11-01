@@ -1,73 +1,79 @@
-import React, { useState } from 'react';
-import { P, S, STORE_KEYS, COUPONS, eur, pct, hist } from '../data.js';
-import { DENS, K, tab, hdrMuted } from '../look.js';
-import Star from '../Star.jsx';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { eur } from '../data.js';
+import { tab, hdrMuted } from '../look.js';
 
 const chip = on => ({ flex: 'none', minHeight: 36, padding: '0 12px', fontSize: 13, cursor: 'pointer', border: '1px solid ' + (on ? 'var(--color-text)' : 'var(--color-divider)'), background: on ? 'var(--color-text)' : 'transparent', color: on ? 'var(--color-bg)' : 'var(--color-text)' });
-
-const deals = [];
-P.forEach(p => {
-  if (!p.w) return;
-  const low = Math.min(...hist(p));
-  Object.entries(p.w).forEach(([k, w]) => deals.push({ p, k, price: p.p[k], w, pc: pct(p.p[k], w), low: p.p[k] <= low }));
-});
+const fmtDate = iso => iso ? new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 
 export default function Deals({ app }) {
+  const [data, setData] = useState({ offers: [], updatedAt: null, error: null, running: false, progress: null });
+  const [netErr, setNetErr] = useState(null);
   const [minPct, setMinPct] = useState(0);
-  const [store, setStore] = useState('all');
-  const fd = deals.filter(d => d.pc >= minPct && (store === 'all' || d.k === store)).sort((a, b) => b.pc - a.pc);
-  const stores = [['all', 'Todos'], ...STORE_KEYS.filter(k => deals.some(d => d.k === k)).map(k => [k, S[k]])];
+  const [cat, setCat] = useState('all');
+  const [q, setQ] = useState('');
+  const [onlySel, setOnlySel] = useState(false);
+
+  const load = useCallback(async () => {
+    try { setData(await (await fetch('/api/offers')).json()); setNetErr(null); } catch { setNetErr('No hay conexión con el servidor. Arráncalo con npm start.'); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (!data.running) return; const t = setInterval(load, 1500); return () => clearInterval(t); }, [data.running, load]);
+
+  const refresh = async () => { await fetch('/api/refresh', { method: 'POST' }).catch(() => {}); setTimeout(load, 300); };
+
+  const cats = useMemo(() => ['all', ...new Set(data.offers.map(o => o.category))], [data.offers]);
+  const list = data.offers.filter(o => o.pct >= minPct && (cat === 'all' || o.category === cat) && (!onlySel || app.selected[o.id]) && o.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const sel = Object.values(app.selected);
+  const total = sel.reduce((a, o) => a + o.price, 0), saved = sel.reduce((a, o) => a + (o.was - o.price), 0);
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 0 14px', borderBottom: '2px solid var(--color-divider)' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '10px 20px 12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 0 12px', borderBottom: '2px solid var(--color-divider)' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '10px 20px 0' }}>
           <h1 style={{ margin: 0, fontSize: 24, letterSpacing: '-0.02em' }}>Ofertas</h1>
-          <span style={hdrMuted}>{deals.length} activas</span>
+          <span style={hdrMuted}>{data.offers.length} activas · Mercadona</span>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', fontSize: 12, color: 'var(--color-neutral-700)' }}>
+          <span>{data.running ? `Actualizando… ${data.progress ? `${data.progress.done}/${data.progress.total}` : ''}` : `Actualizado: ${fmtDate(data.updatedAt)}`}</span>
+          <button onClick={refresh} disabled={data.running} style={{ minHeight: 36, padding: '0 12px', fontWeight: 800, fontSize: 13, cursor: 'pointer', border: '1px solid var(--color-text)', background: 'transparent', color: 'var(--color-text)', opacity: data.running ? .45 : 1 }}>Actualizar ofertas</button>
+        </div>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrar ofertas…" aria-label="Filtrar ofertas" style={{ margin: '0 20px', height: 40, padding: '0 12px', border: '1px solid var(--color-divider)', background: 'var(--color-surface)', font: 'inherit', fontSize: 14, color: 'var(--color-text)' }} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', border: '1px solid var(--color-divider)', margin: '0 20px' }}>
           {[0, 10, 20, 30].map((v, i) => <button key={v} onClick={() => setMinPct(v)} style={{ ...tab(minPct === v), minHeight: 40, borderLeft: i ? '1px solid var(--color-divider)' : 0 }}>{v ? `−${v} %` : 'Todas'}</button>)}
         </div>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '0 20px' }}>
-          {stores.map(([k, l]) => <button key={k} onClick={() => setStore(k)} style={chip(store === k)}>{l}</button>)}
+          <button onClick={() => setOnlySel(s => !s)} style={chip(onlySel)}>Seleccionadas · {sel.length}</button>
+          {cats.map(c => <button key={c} onClick={() => setCat(c)} style={chip(cat === c)}>{c === 'all' ? 'Todas las categorías' : c}</button>)}
         </div>
       </div>
       <div className="scroll">
-        <div style={{ padding: '14px 0 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span className="kicker" style={{ padding: '0 20px' }}>Cupones</span>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 20px 8px' }}>
-            {COUPONS.map(c => {
-              const on = app.copied.includes(c.id);
-              return (
-                <div key={c.id} style={{ flex: 'none', width: 200, border: '1px dashed var(--color-text)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--color-accent-700)' }}>{c.store}</span>
-                  <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.2 }}>{c.title}</span>
-                  <span style={{ fontSize: 11, color: 'var(--color-neutral-700)' }}>Hasta {c.until}</span>
-                  <button onClick={() => app.toggleCoupon(c.id)} aria-pressed={on} style={{ marginTop: 4, minHeight: 36, padding: '0 10px', textAlign: 'left', fontSize: 12, fontWeight: 800, cursor: 'pointer', border: on ? '1px solid var(--color-text)' : 0, background: on ? 'transparent' : 'var(--color-accent)', color: on ? 'var(--color-text)' : 'var(--color-bg)' }}>{on ? 'Guardado en tu tarjeta ✓' : 'Añadir a mi tarjeta'}</button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '2px solid var(--color-divider)' }}>
-          {fd.map(d => (
-            <div key={d.p.id + d.k} style={{ display: 'flex', flexDirection: 'column', gap: 6 * DENS, padding: `${12 * DENS}px 14px ${14 * DENS}px`, borderBottom: '1px solid var(--color-divider)', borderRight: '1px solid var(--color-divider)', minHeight: 170 * DENS }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <span style={{ background: 'var(--color-accent)', color: 'var(--color-bg)', fontWeight: 800, fontSize: 15, padding: '2px 8px' }}>−{d.pc} %</span>
-                <button aria-label="Favorito" aria-pressed={app.favs.includes(d.p.id)} onClick={() => app.toggleFav(d.p.id)} style={{ width: 36, height: 36, margin: '-6px -8px 0 0', display: 'grid', placeItems: 'center', background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--color-text)' }}><Star on={app.favs.includes(d.p.id)} size={18} /></button>
+        {(netErr || data.error) && <div role="alert" style={{ padding: '14px 20px', fontSize: 13, background: 'var(--color-accent-100)', color: 'var(--color-accent-800)', borderBottom: '1px solid var(--color-divider)' }}>{netErr || `No se pudo actualizar: ${data.error}`}{data.offers.length ? ' Se muestran las últimas ofertas guardadas.' : ''}</div>}
+        {list.map(o => {
+          const on = !!app.selected[o.id];
+          return (
+            <label key={o.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '28px 56px minmax(0,1fr) auto', gap: 10, alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid var(--color-divider)', cursor: 'pointer', background: on ? 'var(--color-accent-100)' : undefined }}>
+              <input type="checkbox" checked={on} onChange={() => app.toggleSelect(o)} aria-label={`Seleccionar ${o.name}`} style={{ width: 20, height: 20, accentColor: 'var(--color-accent)' }} />
+              {o.image ? <img src={o.image} alt="" loading="lazy" className="grayscale" style={{ width: 56, height: 56, objectFit: 'cover' }} /> : <span />}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.25 }}>{o.name}</span>
+                <span style={{ fontSize: 12, color: 'var(--color-neutral-700)' }}>{o.unit}{o.unit ? ' · ' : ''}{o.category}</span>
               </div>
-              <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.25, flex: 1 }}>{d.p.name} · {d.p.unit}</span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 22 * K, fontWeight: 800, letterSpacing: '-0.02em' }}>{eur(d.price)}</span>
-                <span style={{ fontSize: 12, textDecoration: 'line-through', color: 'var(--color-neutral-600)' }}>{eur(d.w)}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                <span style={{ background: 'var(--color-accent)', color: 'var(--color-bg)', fontWeight: 800, fontSize: 12, padding: '1px 6px' }}>−{o.pct} %</span>
+                <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em' }}>{eur(o.price)}</span>
+                <span style={{ fontSize: 11, textDecoration: 'line-through', color: 'var(--color-neutral-600)' }}>{eur(o.was)}</span>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 600 }}>{S[d.k]}</span>
-              {d.low && <span style={{ fontSize: 11, color: 'var(--color-accent-700)', fontWeight: 600 }}>Mínimo de 12 semanas</span>}
-            </div>
-          ))}
-        </div>
-        {fd.length === 0 && <div style={{ padding: '32px 20px', fontSize: 14, color: 'var(--color-neutral-700)' }}>No hay ofertas con ese descuento en este súper.</div>}
+            </label>
+          );
+        })}
+        {!list.length && !data.running && <div style={{ padding: '32px 20px', fontSize: 14, color: 'var(--color-neutral-700)' }}>{data.offers.length ? 'No hay ofertas con esos filtros.' : 'Aún no hay ofertas. Pulsa «Actualizar ofertas».'}</div>}
       </div>
+      {sel.length > 0 && (
+        <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderTop: '2px solid var(--color-text)', background: 'var(--color-text)', color: 'var(--color-bg)' }}>
+          <span style={{ fontSize: 13 }}>{sel.length} seleccionadas · pagas <b>{eur(total)}</b> · ahorras <b>{eur(saved)}</b></span>
+          <button onClick={app.clearSelected} style={{ minHeight: 36, background: 'transparent', border: '1px solid var(--color-bg)', color: 'var(--color-bg)', padding: '0 10px', cursor: 'pointer', fontSize: 12 }}>Limpiar</button>
+        </div>
+      )}
     </>
   );
 }
