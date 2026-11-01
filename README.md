@@ -1,7 +1,6 @@
 # Compara precios · Buscador de ofertas
 
-App móvil (React + Vite) con un servidor Node que scrapea las ofertas actuales de Mercadona
-(API pública de su tienda online, almacén `mad1`) y las sirve a la app.
+App móvil (React + Vite) con un servidor Node que scrapea las ofertas actuales de Mercadona, Dia y Carrefour y las sirve a la app.
 
 ## Arrancar
 
@@ -18,5 +17,6 @@ Variables: `PORT`, `MERCADONA_WH` (almacén, p. ej. `bcn1`), `MERCADONA_BASE`.
 
 ## Notas
 - Buscar y Cesta siguen usando los datos de ejemplo del diseño (`src/data.js`); solo Ofertas es real.
-- Solo Mercadona está implementado. Añadir otro súper = un módulo en `server/` que devuelva ofertas con la misma forma que `toOffer`.
+- Mercadona usa su API pública (almacén `mad1`). Dia y Carrefour usan APIs internas sin documentar, buscando ~30 productos básicos (`server/search.js`); **no verificadas contra los sitios reales** y pueden bloquear bots o cambiar. Si un súper falla, la app lo marca con ⚠, conserva sus últimas ofertas y no afecta a los demás. Los endpoints se ajustan en `server/dia.js` y `server/carrefour.js` (o con `DIA_BASE`/`CARREFOUR_BASE`).
+- Añadir otro súper = un módulo en `server/` que devuelva ofertas con `makeOffer` y registrarlo en `SCRAPERS`.
 - Desarrollo con recarga: `npm run dev` (vite en :5173 proxy a la API en :8787).

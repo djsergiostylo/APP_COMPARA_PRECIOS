@@ -10,6 +10,7 @@ export default function Deals({ app }) {
   const [netErr, setNetErr] = useState(null);
   const [minPct, setMinPct] = useState(0);
   const [cat, setCat] = useState('all');
+  const [store, setStore] = useState('all');
   const [q, setQ] = useState('');
   const [onlySel, setOnlySel] = useState(false);
 
@@ -22,7 +23,8 @@ export default function Deals({ app }) {
   const refresh = async () => { await fetch('/api/refresh', { method: 'POST' }).catch(() => {}); setTimeout(load, 300); };
 
   const cats = useMemo(() => ['all', ...new Set(data.offers.map(o => o.category))], [data.offers]);
-  const list = data.offers.filter(o => o.pct >= minPct && (cat === 'all' || o.category === cat) && (!onlySel || app.selected[o.id]) && o.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const list = data.offers.filter(o => o.pct >= minPct && (cat === 'all' || o.category === cat) && (store === 'all' || o.store === store) && (!onlySel || app.selected[o.id]) && o.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const storeNames = ['Mercadona', 'Dia', 'Carrefour'];
   const sel = Object.values(app.selected);
   const total = sel.reduce((a, o) => a + o.price, 0), saved = sel.reduce((a, o) => a + (o.was - o.price), 0);
 
@@ -31,7 +33,7 @@ export default function Deals({ app }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 0 12px', borderBottom: '2px solid var(--color-divider)' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '10px 20px 0' }}>
           <h1 style={{ margin: 0, fontSize: 24, letterSpacing: '-0.02em' }}>Ofertas</h1>
-          <span style={hdrMuted}>{data.offers.length} activas · Mercadona</span>
+          <span style={hdrMuted}>{data.offers.length} activas</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', fontSize: 12, color: 'var(--color-neutral-700)' }}>
           <span>{data.running ? `Actualizando… ${data.progress ? `${data.progress.done}/${data.progress.total}` : ''}` : `Actualizado: ${fmtDate(data.updatedAt)}`}</span>
@@ -42,6 +44,7 @@ export default function Deals({ app }) {
           {[0, 10, 20, 30].map((v, i) => <button key={v} onClick={() => setMinPct(v)} style={{ ...tab(minPct === v), minHeight: 40, borderLeft: i ? '1px solid var(--color-divider)' : 0 }}>{v ? `−${v} %` : 'Todas'}</button>)}
         </div>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '0 20px' }}>
+          {['all', ...storeNames].map(s => <button key={s} onClick={() => setStore(s)} style={chip(store === s)}>{s === 'all' ? 'Todos los súper' : `${s}${data.stores?.[s] && !data.stores[s].ok ? ' ⚠' : ''}`}</button>)}
           <button onClick={() => setOnlySel(s => !s)} style={chip(onlySel)}>Seleccionadas · {sel.length}</button>
           {cats.map(c => <button key={c} onClick={() => setCat(c)} style={chip(cat === c)}>{c === 'all' ? 'Todas las categorías' : c}</button>)}
         </div>
@@ -56,7 +59,7 @@ export default function Deals({ app }) {
               {o.image ? <img src={o.image} alt="" loading="lazy" className="grayscale" style={{ width: 56, height: 56, objectFit: 'cover' }} /> : <span />}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                 <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.25 }}>{o.name}</span>
-                <span style={{ fontSize: 12, color: 'var(--color-neutral-700)' }}>{o.unit}{o.unit ? ' · ' : ''}{o.category}</span>
+                <span style={{ fontSize: 12, color: 'var(--color-neutral-700)' }}><b>{o.store}</b> · {o.unit}{o.unit ? ' · ' : ''}{o.category}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                 <span style={{ background: 'var(--color-accent)', color: 'var(--color-bg)', fontWeight: 800, fontSize: 12, padding: '1px 6px' }}>−{o.pct} %</span>
