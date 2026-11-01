@@ -1,0 +1,12 @@
+html, body, #root { height: 100%; }
+body { margin: 0; background: var(--color-surface); }
+button { font: inherit; }
+.app { width: 100%; max-width: 430px; height: 100dvh; margin: 0 auto; background: var(--color-bg); display: flex; flex-direction: column; overflow: hidden; }
+@media (min-width: 480px) { .app { height: min(844px, 100dvh); margin-top: calc((100dvh - min(844px, 100dvh)) / 2); border: 2px solid var(--color-text); box-shadow: var(--shadow-md); } }
+.tabbar { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 2px solid var(--color-divider); flex: none; }
+.tabbar button { min-height: 52px; border: 0; background: transparent; color: var(--color-text); text-align: left; padding: 0 20px; cursor: pointer; font-size: 13px; }
+.tabbar button:hover { background: var(--color-surface); }
+.tabbar button[aria-current='page'] { background: var(--color-text); color: var(--color-bg); font-weight: 800; }
+.row-hover:hover { background: var(--color-surface); }
+.scroll { flex: 1; overflow-y: auto; }
+.kicker { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-neutral-700); }
